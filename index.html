@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Three.js Smiley Shader</title>
+    <title>3D Smiley Face</title>
     <style>
         body { margin: 0; }
         canvas { display: block; }
@@ -9,118 +9,75 @@
 </head>
 <body>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
     <script>
-        const vertexShader = `
-            varying vec3 vNormal;
-            varying vec3 vPosition;
-            
-            void main() {
-                vNormal = normalize(normalMatrix * normal);
-                vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `;
-
-        const fragmentShader = `
-            varying vec3 vNormal;
-            varying vec3 vPosition;
-            
-            uniform vec3 lightPosition;
-            
-            void main() {
-                // Convert position to sphere UV coordinates
-                vec3 n = normalize(vNormal);
-                vec2 uv = vec2(
-                    0.5 + atan(n.z, n.x) / (2.0 * 3.14159),
-                    0.5 - asin(n.y) / 3.14159
-                );
-                
-                // Base color (yellow)
-                vec3 color = vec3(1.0, 1.0, 0.0);
-                
-                // Eyes
-                vec2 leftEyeCenter = vec2(0.35, 0.6);
-                vec2 rightEyeCenter = vec2(0.65, 0.6);
-                float eyeRadius = 0.05;
-                
-                if (length(uv - leftEyeCenter) < eyeRadius || 
-                    length(uv - rightEyeCenter) < eyeRadius) {
-                    color = vec3(0.0); // Black eyes
-                }
-                
-                // Smile
-                vec2 smileCenter = vec2(0.5, 0.4);
-                float smileRadius = 0.2;
-                float smileThickness = 0.02;
-                vec2 smileOffset = uv - smileCenter;
-                float smileAngle = atan(smileOffset.y, smileOffset.x - 0.5);
-                
-                if (abs(length(smileOffset) - smileRadius) < smileThickness && 
-                    smileAngle > -2.5 && smileAngle < 2.5 && 
-                    smileOffset.y < 0.0) {
-                    color = vec3(0.0); // Black smile
-                }
-                
-                // Lighting
-                vec3 normal = normalize(vNormal);
-                vec3 lightDir = normalize(lightPosition - vPosition);
-                float diff = max(dot(normal, lightDir), 0.0);
-                vec3 ambient = vec3(0.3);
-                vec3 lighting = ambient + diff * vec3(0.7);
-                
-                gl_FragColor = vec4(color * lighting, 1.0);
-            }
-        `;
-
-        // Setup with background color
+        // Setup scene
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x808080); // Add gray background
+        scene.background = new THREE.Color(0x808080);
 
+        // Camera
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 3;
+
+        // Renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        // Create shader material with updated settings
-        const uniforms = {
-            lightPosition: { value: new THREE.Vector3(2, 2, 2) }
-        };
+        // Create face parts
+        function createSmiley() {
+            // Head group
+            const head = new THREE.Group();
 
-        const material = new THREE.ShaderMaterial({
-            uniforms: uniforms,
-            vertexShader: vertexShader,
-            fragmentShader: fragmentShader,
-            side: THREE.DoubleSide,
-            transparent: true
-        });
+            // Base sphere (yellow)
+            const geometry = new THREE.SphereGeometry(1, 32, 32);
+            const material = new THREE.MeshPhongMaterial({ color: 0xffff00 });
+            const sphere = new THREE.Mesh(geometry, material);
+            head.add(sphere);
 
-        // Create sphere
-        const geometry = new THREE.SphereGeometry(1, 64, 64);
-        const mesh = new THREE.Mesh(geometry, material);
-        scene.add(mesh);
+            // Eyes (black)
+            const eyeGeometry = new THREE.SphereGeometry(0.15, 32, 32);
+            const eyeMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
+            
+            // Left eye
+            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            leftEye.position.set(-0.3, 0.3, 0.8);
+            head.add(leftEye);
+            
+            // Right eye
+            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            rightEye.position.set(0.3, 0.3, 0.8);
+            head.add(rightEye);
 
-        // Position camera
-        camera.position.set(0, 0, 3);
+            // Smile
+            const smileGeometry = new THREE.TorusGeometry(0.4, 0.08, 16, 32, Math.PI);
+            const smileMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
+            const smile = new THREE.Mesh(smileGeometry, smileMaterial);
+            smile.position.set(0, -0.1, 0.8);
+            smile.rotation.x = Math.PI / 2;
+            head.add(smile);
 
-        // Add orbit controls
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
+            return head;
+        }
 
-        // Add some light to the scene
-        const ambientLight = new THREE.AmbientLight(0x404040);
+        // Create and add smiley face
+        const smiley = createSmiley();
+        scene.add(smiley);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 1);
         scene.add(ambientLight);
 
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(2, 2, 2);
+        directionalLight.position.set(5, 5, 5);
         scene.add(directionalLight);
 
-        // Animation loop
+        // Animation
         function animate() {
             requestAnimationFrame(animate);
-            controls.update();
+            
+            // Optional: Add some gentle rotation
+            smiley.rotation.y += 0.005;
+            
             renderer.render(scene, camera);
         }
 
