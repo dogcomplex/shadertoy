@@ -9,6 +9,7 @@
 </head>
 <body>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
     <script>
         // Setup scene
         const scene = new THREE.Scene();
@@ -23,39 +24,62 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Create face parts
+        // Add OrbitControls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
         function createSmiley() {
-            // Head group
             const head = new THREE.Group();
 
             // Base sphere (yellow)
-            const geometry = new THREE.SphereGeometry(1, 32, 32);
-            const material = new THREE.MeshPhongMaterial({ color: 0xffff00 });
-            const sphere = new THREE.Mesh(geometry, material);
+            const sphereMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xffff00,
+                specular: 0x111111,
+                shininess: 30
+            });
+
+            const geometry = new THREE.SphereGeometry(1, 64, 64);
+            const sphere = new THREE.Mesh(geometry, sphereMaterial);
             head.add(sphere);
 
-            // Eyes (black)
+            // Eyes with highlights
             const eyeGeometry = new THREE.SphereGeometry(0.15, 32, 32);
-            const eyeMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
-            
-            // Left eye
+            const eyeMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x000000,
+                specular: 0xffffff,
+                shininess: 100
+            });
+
             const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
             leftEye.position.set(-0.3, 0.3, 0.8);
-            head.add(leftEye);
             
-            // Right eye
             const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
             rightEye.position.set(0.3, 0.3, 0.8);
-            head.add(rightEye);
+
+            // Eye highlights
+            const highlightGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+            const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            
+            const leftHighlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
+            leftHighlight.position.set(-0.25, 0.35, 0.9);
+            
+            const rightHighlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
+            rightHighlight.position.set(0.35, 0.35, 0.9);
 
             // Smile
-            const smileGeometry = new THREE.TorusGeometry(0.4, 0.08, 16, 32, Math.PI);
-            const smileMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
+            const smileGeometry = new THREE.TorusGeometry(0.4, 0.08, 32, 64, Math.PI);
+            const smileMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x000000,
+                specular: 0x333333,
+                shininess: 30
+            });
+            
             const smile = new THREE.Mesh(smileGeometry, smileMaterial);
             smile.position.set(0, -0.1, 0.8);
             smile.rotation.x = Math.PI / 2;
-            head.add(smile);
 
+            head.add(leftEye, rightEye, leftHighlight, rightHighlight, smile);
             return head;
         }
 
@@ -67,17 +91,18 @@
         const ambientLight = new THREE.AmbientLight(0x404040, 1);
         scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(5, 5, 5);
-        scene.add(directionalLight);
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1);
+        mainLight.position.set(5, 5, 5);
+        scene.add(mainLight);
 
-        // Animation
+        const fillLight = new THREE.DirectionalLight(0x7090ff, 0.5);
+        fillLight.position.set(-5, -2, -5);
+        scene.add(fillLight);
+
+        // Animation loop
         function animate() {
             requestAnimationFrame(animate);
-            
-            // Optional: Add some gentle rotation
-            smiley.rotation.y += 0.005;
-            
+            controls.update();
             renderer.render(scene, camera);
         }
 
