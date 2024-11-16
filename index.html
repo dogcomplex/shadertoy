@@ -80,66 +80,94 @@
             head.add(sphere);
 
             // Enhanced eyes
-            function createEye(x) {
+            function createEye(x, isWinking = false) {
                 const eyeGroup = new THREE.Group();
                 
-                const eyeGeometry = new THREE.SphereGeometry(0.15, 32, 32);
-                const eyeMaterial = new THREE.MeshPhysicalMaterial({ 
-                    color: 0x000000,
-                    metalness: 0.9,
-                    roughness: 0.1,
-                    envMap: envMap
-                });
+                if (isWinking) {
+                    // Create a line for winking eye
+                    const winkGeometry = new THREE.BoxGeometry(0.2, 0.03, 0.1);
+                    const winkMaterial = new THREE.MeshPhysicalMaterial({ 
+                        color: 0x000000,
+                        metalness: 0.9,
+                        roughness: 0.1,
+                        envMap: envMap
+                    });
+                    const wink = new THREE.Mesh(winkGeometry, winkMaterial);
+                    wink.position.set(x, 0.3, 0.9);
+                    wink.rotation.z = 0.1;
+                    eyeGroup.add(wink);
+                } else {
+                    // Normal eye
+                    const eyeGeometry = new THREE.SphereGeometry(0.12, 32, 32);
+                    const eyeMaterial = new THREE.MeshPhysicalMaterial({ 
+                        color: 0x000000,
+                        metalness: 0.9,
+                        roughness: 0.1,
+                        envMap: envMap
+                    });
 
-                const eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-                eye.position.set(x, 0.3, 0.8);
-                eyeGroup.add(eye);
+                    const eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                    eye.position.set(x, 0.3, 0.9);
+                    eyeGroup.add(eye);
 
-                // Enhanced highlight
-                const highlightGeometry = new THREE.SphereGeometry(0.05, 16, 16);
-                const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-                const highlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
-                highlight.position.set(x + 0.05, 0.35, 0.9);
-                eyeGroup.add(highlight);
+                    // Highlight
+                    const highlightGeometry = new THREE.SphereGeometry(0.04, 16, 16);
+                    const highlightMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                    const highlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
+                    highlight.position.set(x + 0.05, 0.35, 1.0);
+                    eyeGroup.add(highlight);
+                }
 
                 return eyeGroup;
             }
 
-            head.add(createEye(-0.3));  // Left eye
-            head.add(createEye(0.3));   // Right eye
+            head.add(createEye(-0.3, expression === 'wink'));  // Left eye
+            head.add(createEye(0.3, false));  // Right eye always open
 
             // Expression-based smile
             function createSmile(type) {
-                let smileGeometry;
-                switch(type) {
-                    case 'sad':
-                        smileGeometry = new THREE.TorusGeometry(0.4, 0.08, 32, 64, Math.PI);
-                        break;
-                    case 'surprised':
-                        smileGeometry = new THREE.CircleGeometry(0.2, 32);
-                        break;
-                    default:
-                        smileGeometry = new THREE.TorusGeometry(0.4, 0.08, 32, 64, Math.PI);
-                }
-
-                const smileMaterial = new THREE.MeshPhysicalMaterial({ 
+                const smileGroup = new THREE.Group();
+                const blackMaterial = new THREE.MeshPhysicalMaterial({ 
                     color: 0x000000,
                     metalness: 0.8,
                     roughness: 0.2,
                     envMap: envMap
                 });
-
-                const smile = new THREE.Mesh(smileGeometry, smileMaterial);
-                smile.position.set(0, -0.1, 0.8);
                 
-                if (type === 'sad') {
-                    smile.rotation.x = -Math.PI / 2;
-                    smile.position.y = -0.3;
-                } else if (type === 'happy') {
-                    smile.rotation.x = Math.PI / 2;
+                switch(type) {
+                    case 'sad':
+                        const sadGeometry = new THREE.TorusGeometry(0.4, 0.08, 32, 64, Math.PI);
+                        const sadSmile = new THREE.Mesh(sadGeometry, blackMaterial);
+                        sadSmile.rotation.x = Math.PI * 1.5;
+                        sadSmile.position.set(0, -0.3, 0.9);
+                        smileGroup.add(sadSmile);
+                        break;
+
+                    case 'surprised':
+                        const surprisedGeometry = new THREE.RingGeometry(0.15, 0.25, 32);
+                        const surprisedMouth = new THREE.Mesh(surprisedGeometry, blackMaterial);
+                        surprisedMouth.position.set(0, -0.2, 0.9);
+                        smileGroup.add(surprisedMouth);
+                        break;
+
+                    case 'wink':
+                        const winkGeometry = new THREE.TorusGeometry(0.4, 0.08, 32, 64, Math.PI * 0.6);
+                        const winkSmile = new THREE.Mesh(winkGeometry, blackMaterial);
+                        winkSmile.rotation.x = Math.PI / 2;
+                        winkSmile.rotation.z = -Math.PI / 6;
+                        winkSmile.position.set(0.1, -0.2, 0.9);
+                        smileGroup.add(winkSmile);
+                        break;
+
+                    default: // happy
+                        const happyGeometry = new THREE.TorusGeometry(0.4, 0.08, 32, 64, Math.PI);
+                        const happySmile = new THREE.Mesh(happyGeometry, blackMaterial);
+                        happySmile.rotation.x = Math.PI / 2;
+                        happySmile.position.set(0, -0.2, 0.9);
+                        smileGroup.add(happySmile);
                 }
 
-                return smile;
+                return smileGroup;
             }
 
             head.add(createSmile(expression));
