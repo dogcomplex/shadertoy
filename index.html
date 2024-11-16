@@ -8,82 +8,127 @@
     </style>
 </head>
 <body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
     <script>
         const vertexShader = `
+            varying vec3 vNormal;
+            varying vec3 vPosition;
+            
             void main() {
-                gl_Position = vec4(position, 1.0);
+                vNormal = normalize(normalMatrix * normal);
+                vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
         `;
 
         const fragmentShader = `
-            uniform vec2 resolution;
-            uniform float time;
-
-            float circle(vec2 pos, vec2 center, float radius) {
-                return step(length(pos - center), radius);
-            }
-
+            varying vec3 vNormal;
+            varying vec3 vPosition;
+            
+            uniform vec3 lightPosition;
+            
             void main() {
-                vec2 uv = gl_FragCoord.xy/resolution.xy;
-                uv = uv * 2.0 - 1.0;
-                uv.x *= resolution.x/resolution.y;
+                // Convert position to sphere UV coordinates
+                vec3 n = normalize(vNormal);
+                vec2 uv = vec2(
+                    0.5 + atan(n.z, n.x) / (2.0 * 3.14159),
+                    0.5 - asin(n.y) / 3.14159
+                );
                 
-                // Face
-                float face = circle(uv, vec2(0.0), 0.5);
+                // Base color (yellow)
+                vec3 color = vec3(1.0, 1.0, 0.0);
                 
                 // Eyes
-                float leftEye = circle(uv, vec2(-0.2, 0.1), 0.1);
-                float rightEye = circle(uv, vec2(0.2, 0.1), 0.1);
+                vec2 leftEyeCenter = vec2(0.35, 0.6);
+                vec2 rightEyeCenter = vec2(0.65, 0.6);
+                float eyeRadius = 0.05;
+                
+                if (length(uv - leftEyeCenter) < eyeRadius || 
+                    length(uv - rightEyeCenter) < eyeRadius) {
+                    color = vec3(0.0); // Black eyes
+                }
                 
                 // Smile
-                vec2 smileUV = uv - vec2(0.0, -0.1);
-                float smile = step(abs(length(smileUV) - 0.3), 0.05) * 
-                             step(smileUV.y, 0.0);
+                vec2 smileCenter = vec2(0.5, 0.4);
+                float smileRadius = 0.2;
+                float smileThickness = 0.02;
+                vec2 smileOffset = uv - smileCenter;
+                float smileAngle = atan(smileOffset.y, smileOffset.x - 0.5);
                 
-                // Combine
-                vec3 color = vec3(1.0, 1.0, 0.0) * face;  // Yellow face
-                color = mix(color, vec3(0.0), leftEye + rightEye + smile);  // Black features
+                if (abs(length(smileOffset) - smileRadius) < smileThickness && 
+                    smileAngle > -2.5 && smileAngle < 2.5 && 
+                    smileOffset.y < 0.0) {
+                    color = vec3(0.0); // Black smile
+                }
                 
-                gl_FragColor = vec4(color, 1.0);
+                // Lighting
+                vec3 normal = normalize(vNormal);
+                vec3 lightDir = normalize(lightPosition - vPosition);
+                float diff = max(dot(normal, lightDir), 0.0);
+                vec3 ambient = vec3(0.3);
+                vec3 lighting = ambient + diff * vec3(0.7);
+                
+                gl_FragColor = vec4(color * lighting, 1.0);
             }
         `;
 
-        // Setup
+        // Setup with background color
         const scene = new THREE.Scene();
-        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-        const renderer = new THREE.WebGLRenderer();
+        scene.background = new THREE.Color(0x808080); // Add gray background
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        // Create shader material
+        // Create shader material with updated settings
         const uniforms = {
-            time: { value: 0.0 },
-            resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+            lightPosition: { value: new THREE.Vector3(2, 2, 2) }
         };
 
         const material = new THREE.ShaderMaterial({
             uniforms: uniforms,
             vertexShader: vertexShader,
-            fragmentShader: fragmentShader
+            fragmentShader: fragmentShader,
+            side: THREE.DoubleSide,
+            transparent: true
         });
 
-        // Create mesh
-        const geometry = new THREE.PlaneGeometry(2, 2);
+        // Create sphere
+        const geometry = new THREE.SphereGeometry(1, 64, 64);
         const mesh = new THREE.Mesh(geometry, material);
         scene.add(mesh);
+
+        // Position camera
+        camera.position.set(0, 0, 3);
+
+        // Add orbit controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Add some light to the scene
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(2, 2, 2);
+        scene.add(directionalLight);
 
         // Animation loop
         function animate() {
             requestAnimationFrame(animate);
-            uniforms.time.value += 0.01;
+            controls.update();
             renderer.render(scene, camera);
         }
 
         // Handle window resize
         window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-            uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
         });
 
         animate();
